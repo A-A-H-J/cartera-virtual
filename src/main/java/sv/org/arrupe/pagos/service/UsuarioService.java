@@ -9,10 +9,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sv.org.arrupe.pagos.model.Usuario;
-import sv.org.arrupe.pagos.model.Cartera; // Importa el modelo Cartera
+import sv.org.arrupe.pagos.model.Cartera; 
 import sv.org.arrupe.pagos.repository.UsuarioRepository;
-import sv.org.arrupe.pagos.repository.CarteraRepository; // Importa el repositorio de Cartera
+import sv.org.arrupe.pagos.repository.CarteraRepository; 
 import java.util.*;
+import sv.org.arrupe.pagos.model.Rol;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  *
@@ -20,17 +22,25 @@ import java.util.*;
  */
 @Service
 public class UsuarioService {
-    
+
     @Autowired
     private UsuarioRepository usuarioRepository;
 
     @Autowired
-    private CarteraRepository carteraRepository; // Inyecta el repositorio de cartera
+    private CarteraRepository carteraRepository;
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
-    @Transactional // Asegura que ambas operaciones se completen o fallen juntas
+    // --- Integración del servicio de Email ---
+    @Autowired
+    private EmailService emailService;
+
+    @Value("${admin.email}")
+    private String adminEmail;
+    // -----------------------------------------
+
+    @Transactional
     public Usuario saveUser(Usuario usuario) {
         // Encripta la contraseña antes de guardarla
         usuario.setContrasena(passwordEncoder.encode(usuario.getContrasena()));
@@ -40,11 +50,26 @@ public class UsuarioService {
         
         // 2. Crear una cartera asociada al nuevo usuario
         Cartera nuevaCartera = new Cartera();
-        nuevaCartera.setAlumno(nuevoUsuario); // Relaciona la cartera con el nuevo usuario usando el campo "alumno"
-        nuevaCartera.setSaldo(0.00); // Establece el saldo inicial en 0
+        nuevaCartera.setAlumno(nuevoUsuario);
+        nuevaCartera.setSaldo(0.00);
         
         // 3. Guardar la nueva cartera
         carteraRepository.save(nuevaCartera);
+
+        // --- ¡ENVÍO DE NOTIFICACIONES POR CORREO! ---
+        // Notificación de bienvenida para el nuevo usuario
+        String subjectBienvenida = "¡Bienvenido a Cartera Virtual MarketCup!";
+        String textBienvenida = "Hola " + nuevoUsuario.getPrimerNombre() + ",\n\n" +
+                                "Tu cuenta ha sido creada exitosamente. ¡Ya puedes empezar a usar tu cartera virtual en nuestra plataforma!";
+        emailService.sendSimpleMessage(nuevoUsuario.getCorreo(), subjectBienvenida, textBienvenida);
+
+        // Notificación para el administrador
+        String subjectAdmin = "Nuevo Usuario Registrado en MarketCup";
+        String textAdmin = "Se ha registrado un nuevo usuario en la plataforma:\n\n" +
+                           "Nombre: " + nuevoUsuario.getPrimerNombre() + " " + nuevoUsuario.getPrimerApellido() + "\n" +
+                           "Correo: " + nuevoUsuario.getCorreo() + "\n" +
+                           "Carné: " + (nuevoUsuario.getCarnet() != null ? nuevoUsuario.getCarnet() : "N/A");
+        emailService.sendSimpleMessage(adminEmail, subjectAdmin, textAdmin);
         
         return nuevoUsuario;
     }
@@ -57,10 +82,10 @@ public class UsuarioService {
         return usuarioRepository.findById(id).orElse(null);
     }
     
-    // Método para eliminar un usuario por su ID
     public void deleteById(Long id) {
-        Usuario usuario = usuarioRepository.findById(id).orElse(null);
-        if (usuario != null && usuario.getRol().getIdRol() == 2) {
+        Usuario usuario = usuarioRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado."));
+        if (usuario.getRol().getIdRol() == 2) {
             throw new IllegalArgumentException("No se puede eliminar al usuario administrador.");
         }
         usuarioRepository.deleteById(id);
@@ -70,24 +95,43 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado."));
         
-        // No permitir suspender al administrador
         if (usuario.getRol().getIdRol() == 2) {
             throw new IllegalArgumentException("No se puede suspender al usuario administrador.");
         }
         
-        usuario.setActivo(!usuario.isActivo()); // Cambia el estado de activo a inactivo y viceversa
+        usuario.setActivo(!usuario.isActivo());
         return usuarioRepository.save(usuario);
     }
     
     public void updateUserEmail(Long id, String newEmail) {
-        Optional<Usuario> usuarioOptional = usuarioRepository.findById(id);
-
-        if (usuarioOptional.isEmpty()) {
-            throw new RuntimeException("Usuario no encontrado.");
-        }
-
-        Usuario usuario = usuarioOptional.get();
+        Usuario usuario = usuarioRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+        
         usuario.setCorreo(newEmail);
         usuarioRepository.save(usuario);
+    }
+
+    @Transactional
+    public Usuario processOAuthPostLogin(String email, String nombre) {
+        // Usamos una sintaxis más moderna y segura con orElseGet
+        return usuarioRepository.findByCorreo(email).orElseGet(() -> {
+            // Si el usuario no existe, se ejecuta este código para crearlo
+            Usuario newUser = new Usuario();
+            newUser.setCorreo(email);
+            
+            String[] names = nombre.split(" ", 2);
+            newUser.setPrimerNombre(names[0]);
+            newUser.setPrimerApellido(names.length > 1 ? names[1] : " ");
+            
+            newUser.setCarnet("G-" + System.currentTimeMillis()); // Carnet temporal
+            newUser.setContrasena(passwordEncoder.encode("google-provided-password"));
+            
+            Rol estudianteRol = new Rol();
+            estudianteRol.setIdRol(1L); // Asumiendo que 1L es el ID del rol ESTUDIANTE
+            newUser.setRol(estudianteRol);
+            
+            // Reutilizamos el método saveUser que ya crea la cartera y envía los correos
+            return this.saveUser(newUser);
+        });
     }
 }

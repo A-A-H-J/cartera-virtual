@@ -4,6 +4,7 @@
  */
 package sv.org.arrupe.pagos.repository;
 
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import sv.org.arrupe.pagos.model.Usuario;
 
@@ -13,5 +14,5 @@ import sv.org.arrupe.pagos.model.Usuario;
  */
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Usuario findByCarnet(String carnet);
-    Usuario findByCorreo(String correo);
+    Optional<Usuario> findByCorreo(String correo);
 }

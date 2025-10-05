@@ -5,12 +5,14 @@
 package sv.org.arrupe.pagos.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import sv.org.arrupe.pagos.dto.AuthenticationResponse;
 import sv.org.arrupe.pagos.dto.LoginRequest;
 import sv.org.arrupe.pagos.model.Usuario;
 import sv.org.arrupe.pagos.service.AuthService;
+import sv.org.arrupe.pagos.util.JwtUtil;
+
 
 /**
  *
@@ -18,18 +20,22 @@ import sv.org.arrupe.pagos.service.AuthService;
  */
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173") 
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true") 
 public class AuthController {
 
     @Autowired
     private AuthService authService;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     @PostMapping("/login")
-    public ResponseEntity<Usuario> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         Usuario usuario = authService.authenticate(loginRequest.getCorreo(), loginRequest.getContrasena());
         if (usuario != null) {
-            return ResponseEntity.ok(usuario);
+            final String jwt = jwtUtil.generateToken(usuario);
+            return ResponseEntity.ok(new AuthenticationResponse(jwt));
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        return ResponseEntity.status(401).body("Credenciales incorrectas o cuenta inactiva");
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import sv.org.arrupe.pagos.model.Usuario;
 import sv.org.arrupe.pagos.repository.UsuarioRepository;
 
+import java.util.Optional; 
 /**
  *
  * @author perez
@@ -23,12 +24,20 @@ public class AuthService {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
+
     public Usuario authenticate(String correo, String contrasena) {
-        Usuario usuario = usuarioRepository.findByCorreo(correo);
-        // Verifica si el usuario existe, la contraseña es correcta Y si la cuenta está activa
-        if (usuario != null && passwordEncoder.matches(contrasena, usuario.getContrasena()) && usuario.isActivo()) {
-            return usuario;
+        // Buscamos el usuario y obtenemos un Optional
+        Optional<Usuario> usuarioOptional = usuarioRepository.findByCorreo(correo);
+
+        // Si el usuario existe, procedemos a verificar la contraseña y el estado
+        if (usuarioOptional.isPresent()) {
+            Usuario usuario = usuarioOptional.get();
+            if (passwordEncoder.matches(contrasena, usuario.getContrasena()) && usuario.isActivo()) {
+                return usuario;
+            }
         }
+        
+        // Si no se encuentra el usuario o la contraseña no coincide, devolvemos null
         return null; 
     }
 }
