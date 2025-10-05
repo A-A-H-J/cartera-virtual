@@ -29,8 +29,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> {}) // 👈 habilitar cors globalmente
+            .cors(cors -> {}) 
             .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/api/reportes/**").permitAll() 
+                .requestMatchers("/api/qr/**").permitAll() 
                 .requestMatchers("/api/grados/**").permitAll()
                 .requestMatchers("/api/carteras/usuario/**").permitAll() 
                 .requestMatchers("/api/transacciones/**").permitAll()
@@ -46,7 +48,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // 👈 tu frontend
+        configuration.setAllowedOrigins(List.of("http://localhost:5173")); 
         configuration.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
