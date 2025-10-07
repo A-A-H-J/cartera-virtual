@@ -49,4 +49,7 @@ public class Usuario {
     private Grado grado;
 
     private LocalDateTime fechaRegistro = LocalDateTime.now();
+    
+    @Column(name = "face_id", length = 255) 
+    private String faceId;
 }

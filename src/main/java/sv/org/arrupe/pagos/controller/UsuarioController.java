@@ -10,6 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sv.org.arrupe.pagos.model.Usuario;
 import sv.org.arrupe.pagos.service.UsuarioService;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+
 
 /**
  *
@@ -79,6 +82,18 @@ public class UsuarioController {
             return ResponseEntity.ok(Map.of("message", "Correo electrónico actualizado correctamente."));
         } catch (RuntimeException e) {
             return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
+        }
+    }
+    
+    @PostMapping("/{id}/registrar-rostro")
+    public ResponseEntity<?> registrarRostro(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        try {
+            usuarioService.registrarRostro(id, file.getBytes());
+            return ResponseEntity.ok(Map.of("message", "Rostro registrado exitosamente."));
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al leer la imagen.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 }

@@ -5,6 +5,7 @@
 package sv.org.arrupe.pagos.controller;
 
 import java.util.List;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sv.org.arrupe.pagos.model.Transaccion;
 import sv.org.arrupe.pagos.repository.TransaccionRepository;
@@ -51,5 +52,15 @@ public class TransaccionController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         transaccionRepo.deleteById(id);
+    }
+    
+    @GetMapping("/pendientes/{usuarioId}")
+    public ResponseEntity<?> getPagosPendientes(@PathVariable Long usuarioId) {
+        try {
+            List<Transaccion> pendientes = transaccionService.getPagosPendientes(usuarioId);
+            return ResponseEntity.ok(pendientes);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

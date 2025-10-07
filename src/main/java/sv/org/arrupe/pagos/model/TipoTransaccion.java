@@ -17,4 +17,6 @@ public enum TipoTransaccion {
     colegiatura,
     DEVOLUCION,
     devolucion,
+    PAGO_PENDIENTE,
+    pago_pendiente
 }

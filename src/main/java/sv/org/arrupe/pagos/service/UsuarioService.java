@@ -22,6 +22,9 @@ import org.springframework.beans.factory.annotation.Value;
  */
 @Service
 public class UsuarioService {
+    
+    @Autowired
+    private RekognitionService rekognitionService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -133,5 +136,16 @@ public class UsuarioService {
             // Reutilizamos el método saveUser que ya crea la cartera y envía los correos
             return this.saveUser(newUser);
         });
+    }
+    
+    @Transactional
+    public Usuario registrarRostro(Long usuarioId, byte[] imageBytes) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+            .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
+
+        String faceId = rekognitionService.indexFace(imageBytes);
+        usuario.setFaceId(faceId);
+
+        return usuarioRepository.save(usuario);
     }
 }
