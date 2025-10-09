@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package sv.org.arrupe.pagos.controller;
 
 import java.util.*;
@@ -85,13 +81,21 @@ public class UsuarioController {
         }
     }
     
+    /**
+     * MODIFICADO: Acepta múltiples imágenes para un registro facial más robusto.
+     * El frontend debe enviar los archivos bajo el nombre "files".
+     */
     @PostMapping("/{id}/registrar-rostro")
-    public ResponseEntity<?> registrarRostro(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> registrarRostro(@PathVariable Long id, @RequestParam("files") List<MultipartFile> files) {
+        if (files == null || files.isEmpty() || files.stream().allMatch(MultipartFile::isEmpty)) {
+            return ResponseEntity.badRequest().body("Debe proporcionar al menos una imagen.");
+        }
+        
         try {
-            usuarioService.registrarRostro(id, file.getBytes());
-            return ResponseEntity.ok(Map.of("message", "Rostro registrado exitosamente."));
+            usuarioService.registrarRostro(id, files);
+            return ResponseEntity.ok(Map.of("message", "Rostro(s) registrado(s) exitosamente."));
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al leer la imagen.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al leer las imágenes.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

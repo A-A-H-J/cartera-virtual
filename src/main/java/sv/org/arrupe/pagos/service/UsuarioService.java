@@ -1,18 +1,17 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package sv.org.arrupe.pagos.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import sv.org.arrupe.pagos.model.Usuario;
 import sv.org.arrupe.pagos.model.Cartera; 
 import sv.org.arrupe.pagos.repository.UsuarioRepository;
 import sv.org.arrupe.pagos.repository.CarteraRepository; 
+import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 import sv.org.arrupe.pagos.model.Rol;
 import org.springframework.beans.factory.annotation.Value;
 
@@ -138,13 +137,43 @@ public class UsuarioService {
         });
     }
     
+    /**
+     * MODIFICADO: Procesa una lista de imágenes, verifica su calidad,
+     * las indexa en Rekognition y guarda los IDs resultantes.
+     */
     @Transactional
-    public Usuario registrarRostro(Long usuarioId, byte[] imageBytes) {
+    public Usuario registrarRostro(Long usuarioId, List<MultipartFile> files) throws IOException {
         Usuario usuario = usuarioRepository.findById(usuarioId)
             .orElseThrow(() -> new RuntimeException("Usuario no encontrado."));
 
-        String faceId = rekognitionService.indexFace(imageBytes);
-        usuario.setFaceId(faceId);
+        List<String> faceIds = new ArrayList<>();
+        int imagenesProcesadas = 0;
+        int imagenesRechazadas = 0;
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) continue;
+
+            byte[] imageBytes = file.getBytes();
+            
+            // Paso 1: Control de Calidad
+            if (rekognitionService.checkImageQuality(imageBytes)) {
+                // Paso 2: Indexar solo si la calidad es buena
+                String faceId = rekognitionService.indexFace(imageBytes);
+                faceIds.add(faceId);
+                imagenesProcesadas++;
+            } else {
+                imagenesRechazadas++;
+            }
+        }
+
+        if (faceIds.isEmpty()) {
+            throw new RuntimeException("No se pudo registrar ningún rostro. Todas las imágenes fueron rechazadas por baja calidad o por no contener rostros.");
+        }
+        
+        System.out.println("Registro facial para usuario " + usuarioId + ": " + imagenesProcesadas + " imágenes aceptadas, " + imagenesRechazadas + " rechazadas.");
+
+        // Paso 3: Guardar la lista de Face IDs como un string separado por comas
+        usuario.setFaceId(String.join(",", faceIds));
 
         return usuarioRepository.save(usuario);
     }

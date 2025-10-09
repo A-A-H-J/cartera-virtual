@@ -11,6 +11,7 @@ import sv.org.arrupe.pagos.repository.TransaccionRepository;
 import sv.org.arrupe.pagos.repository.UsuarioRepository;
 import sv.org.arrupe.pagos.model.TipoTransaccion;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -93,7 +94,8 @@ public class TransaccionService {
     }
 
     /**
-     * Confirma un pago pendiente después de una verificación facial exitosa.
+     * MODIFICADO: Confirma un pago pendiente comparando el rostro del cliente
+     * contra la lista de Face IDs que tiene registrados.
      * @param idTransaccion ID de la transacción pendiente.
      * @param rostroClienteBytes Imagen del rostro del cliente para verificación.
      * @return La transacción de RECARGA generada para el vendedor.
@@ -109,14 +111,17 @@ public class TransaccionService {
         Usuario vendedor = transaccionPendiente.getRealizadoPor();
         Double monto = transaccionPendiente.getMonto();
 
-        // 2. Verificación Facial con AWS Rekognition
-        String faceIdReferencia = cliente.getFaceId();
-        if (faceIdReferencia == null || faceIdReferencia.isEmpty()) {
-            throw new RuntimeException("El cliente no tiene un rostro de referencia registrado para la verificación.");
+        // 2. Verificación Facial contra MÚLTIPLES rostros de referencia
+        String faceIdsReferencia = cliente.getFaceId();
+        if (faceIdsReferencia == null || faceIdsReferencia.isEmpty()) {
+            throw new RuntimeException("El cliente no tiene rostros de referencia para la verificación.");
         }
+        List<String> listaFaceIdsReferencia = Arrays.asList(faceIdsReferencia.split(","));
 
         String faceIdDetectado = rekognitionService.searchFaceByImage(rostroClienteBytes);
-        if (faceIdDetectado == null || !faceIdReferencia.equals(faceIdDetectado)) {
+        
+        // Comprobamos si el rostro detectado pertenece a la lista de rostros del usuario
+        if (faceIdDetectado == null || !listaFaceIdsReferencia.contains(faceIdDetectado)) {
             throw new RuntimeException("Verificación facial fallida. No se pudo confirmar la identidad.");
         }
 
